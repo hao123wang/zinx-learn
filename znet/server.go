@@ -2,8 +2,8 @@ package znet
 
 import (
 	"fmt"
-	"io"
 	"net"
+	"zinx-learn/ziface"
 )
 
 type Server struct {
@@ -25,40 +25,36 @@ func NewServer(name, ip string, port int) *Server {
 func (s *Server) Start() {
 	addr := fmt.Sprintf("%s:%d", s.IP, s.Port)
 	fmt.Printf("[START] Server listener at addr: %s\n", addr)
+	defer s.Stop()
+
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
+
+	var connID uint32
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Printf("accept conn err: %v\n", err)
 		}
-		// 为每个连接开启协程处理
-		go handle(conn)
+		// 为每个连接创建一个连接管理
+		connID++
+		connection := NewConnection(conn, connID, handle)
+		go connection.Start()
 	}
 }
 
-func handle(conn net.Conn) {
-	// 接收来自该连接的消息
-	buf := make([]byte, 1024)
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Printf("client conn exit\n")
-				return
-			}
-			fmt.Printf("recv buf err: %v\n", err)
-			continue
-		}
-		// 服务器打印信息
-		fmt.Print(string(buf[:n]))
-		// 回显给客户端
-		conn.Write(buf[:n])
-	}
+func handle(req ziface.IRequest) error {
+	fmt.Printf("recv from conn: %d, req: %+v\n", req.GetConnection().GetConnID(), req.GetData())
+	// 服务器打印信息
+	fmt.Print(string(req.GetData()))
+	// 回显给客户端
+	req.GetConnection().GetConn().Write(req.GetData())
+
+	return nil
 }
 
 func (s *Server) Stop() {
-
+	fmt.Println("[END] server stop")
 }
