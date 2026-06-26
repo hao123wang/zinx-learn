@@ -11,17 +11,17 @@ type Connection struct {
 	ConnID   uint32   // 当前连接id
 	IsClosed bool     // 当前连接是否已关闭
 
-	HandlerFunc ziface.HandlerFunc // 连接的处理函数
+	router ziface.IRouter // 处理请求的路由
 
 	ExitBuffChan chan struct{}
 }
 
-func NewConnection(conn net.Conn, connID uint32, handlerFunc ziface.HandlerFunc) *Connection {
+func NewConnection(conn net.Conn, connID uint32, router ziface.IRouter) *Connection {
 	c := &Connection{
 		Conn:         conn,
 		ConnID:       connID,
 		IsClosed:     false,
-		HandlerFunc:  handlerFunc,
+		router:       router,
 		ExitBuffChan: make(chan struct{}, 1),
 	}
 	return c
@@ -45,11 +45,9 @@ func (c *Connection) read() {
 		req := NewRequest(c, buf[:n])
 
 		// 处理请求
-		if err := c.HandlerFunc(req); err != nil {
-			fmt.Println("connID ", c.ConnID, " handle is error")
-			c.ExitBuffChan <- struct{}{}
-			return
-		}
+		c.router.PreHandle(req)
+		c.router.Handle(req)
+		c.router.PostHandle(req)
 	}
 }
 

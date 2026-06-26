@@ -11,6 +11,8 @@ type Server struct {
 	IPVersion string // ip版本，如tcp4
 	IP        string // 服务器ip
 	Port      int    // 服务器端口
+
+	Router ziface.IRouter // 消息路由，负责处理接收到的request
 }
 
 func NewServer(name, ip string, port int) *Server {
@@ -20,6 +22,10 @@ func NewServer(name, ip string, port int) *Server {
 		IP:        ip,
 		Port:      port,
 	}
+}
+
+func (s *Server) AddRouter(router ziface.IRouter) {
+	s.Router = router
 }
 
 func (s *Server) Start() {
@@ -40,7 +46,7 @@ func (s *Server) Start() {
 		}
 		// 为每个连接创建一个连接管理
 		connID++
-		connection := NewConnection(conn, connID, handle)
+		connection := NewConnection(conn, connID, s.Router)
 		go connection.Start()
 	}
 }
